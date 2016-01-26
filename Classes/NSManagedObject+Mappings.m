@@ -29,18 +29,18 @@
 + (NSString *)keyForRemoteKey:(NSString *)remoteKey inContext:(NSManagedObjectContext *)context {
     if ([self cachedMappings][remoteKey])
         return [self cachedMappings][remoteKey][@"key"];
-
+    
     NSString *camelCasedProperty = [[remoteKey camelCase] stringByReplacingCharactersInRange:NSMakeRange(0, 1)
                                                                                   withString:[[remoteKey substringWithRange:NSMakeRange(0, 1)] lowercaseString]];
-
+    
     NSEntityDescription *entity = [NSEntityDescription entityForName:[self entityName]
                                               inManagedObjectContext:context];
-
+    
     if ([entity propertiesByName][camelCasedProperty]) {
         [self cacheKey:camelCasedProperty forRemoteKey:camelCasedProperty];
         return camelCasedProperty;
     }
-
+    
     [self cacheKey:remoteKey forRemoteKey:remoteKey];
     return remoteKey;
 }
@@ -49,7 +49,7 @@
     Class class = [self cachedMappings][remoteKey][@"class"];
     if (class)
         return [self objectOrSetOfObjectsFromValue:value ofClass:class inContext:context];
-
+    
     return value;
 }
 
@@ -58,15 +58,15 @@
 + (id)objectOrSetOfObjectsFromValue:(id)value ofClass:class inContext:(NSManagedObjectContext *)context {
     if ([value isKindOfClass:class])
         return value;
-
+    
     if ([value isKindOfClass:[NSDictionary class]])
         return [class findOrCreate:value inContext:context];
-
+    
     if ([value isKindOfClass:[NSArray class]])
         return [NSSet setWithArray:[value map:^id(id object) {
             return [self objectOrSetOfObjectsFromValue:object ofClass:class inContext:context];
         }]];
-
+    
     return [class findOrCreate:@{ [class primaryKey]: value } inContext:context];
 }
 
@@ -74,11 +74,11 @@
     NSMutableDictionary *cachedMappings = [self sharedMappings][[self class]];
     if (!cachedMappings) {
         cachedMappings = [self sharedMappings][(id<NSCopying>)[self class]] = [NSMutableDictionary new];
-
+        
         [[self mappings] each:^(id key, id value) {
             if ([value isKindOfClass:[NSString class]])
                 [self cacheKey:value forRemoteKey:key];
-
+            
             else {
                 cachedMappings[key] = value;
                 [self cacheKey:key forRemoteKey:key];
