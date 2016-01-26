@@ -172,13 +172,37 @@
 - (void)update:(NSDictionary *)attributes {
     unless([attributes exists]) return;
     
-    NSDictionary *transformed = [[self class] transformProperties:attributes forObject:self withContext:self.managedObjectContext];
+    NSDictionary *normalAttributes = self.entity.attributesByName;
+    NSDictionary *relationShips = self.entity.relationshipsByName;
     
-    for (NSString *key in transformed) [self willChangeValueForKey:key];
-    [transformed each:^(NSString *key, id value) {
-        [self setSafeValue:value forKey:key];
+    [attributes each:^(id key, id value) {
+        if ([normalAttributes objectForKey:key]) {
+            [self willChangeValueForKey:key];
+            [self setSafeValue:value forKey:key];
+            [self didChangeValueForKey:key];
+        } else if ([relationShips objectForKey:key]) {
+            NSRelationshipDescription *relation = [relationShips objectForKey:key];
+            if ([value isKindOfClass:[NSDictionary class]]) {
+                value = [NSClassFromString(relation.destinationEntity.name) create:value];
+            } else if ([value isKindOfClass:[NSArray class]]) {
+                value = [value map:^id(id object) {
+                    if ([object isKindOfClass:[NSDictionary class]]) {
+                        object = [NSClassFromString(relation.destinationEntity.name) create:object];
+                    }
+                    return object;
+                }];
+                if (relation.ordered) {
+                    value = [[NSOrderedSet alloc] initWithArray:value];
+                } else {
+                    value = [NSSet setWithArray:value];
+                }
+            }
+            
+            [self willChangeValueForKey:key];
+            [self setSafeValue:value forKey:key];
+            [self didChangeValueForKey:key];
+        }
     }];
-    for (NSString *key in transformed) [self didChangeValueForKey:key];
 }
 
 - (BOOL)save {
